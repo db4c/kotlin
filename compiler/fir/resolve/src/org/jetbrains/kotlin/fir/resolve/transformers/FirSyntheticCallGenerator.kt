@@ -41,8 +41,7 @@ import org.jetbrains.kotlin.resolve.calls.tasks.ExplicitReceiverKind
 import org.jetbrains.kotlin.types.Variance
 
 class FirSyntheticCallGenerator(
-    private val components: FirAbstractBodyResolveTransformer.BodyResolveTransformerComponents,
-    private val callCompleter: FirCallCompleter
+    private val components: FirAbstractBodyResolveTransformer.BodyResolveTransformerComponents
 ) : BodyResolveComponents by components {
     private val whenSelectFunction: FirSimpleFunction = generateSyntheticSelectFunction(SyntheticCallableId.WHEN)
     private val trySelectFunction: FirSimpleFunction = generateSyntheticSelectFunction(SyntheticCallableId.TRY)
