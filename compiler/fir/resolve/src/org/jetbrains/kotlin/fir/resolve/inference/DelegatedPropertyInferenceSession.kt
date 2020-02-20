@@ -6,13 +6,11 @@
 package org.jetbrains.kotlin.fir.resolve.inference
 
 import org.jetbrains.kotlin.fir.declarations.*
-import org.jetbrains.kotlin.fir.expressions.FirFunctionCall
 import org.jetbrains.kotlin.fir.expressions.FirResolvable
 import org.jetbrains.kotlin.fir.expressions.FirStatement
 import org.jetbrains.kotlin.fir.references.FirNamedReference
 import org.jetbrains.kotlin.fir.resolve.BodyResolveComponents
 import org.jetbrains.kotlin.fir.resolve.calls.Candidate
-import org.jetbrains.kotlin.fir.resolve.calls.candidate
 import org.jetbrains.kotlin.fir.resolve.defaultType
 import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
@@ -44,9 +42,10 @@ class DelegatedPropertyInferenceSession(
     ) where T : FirResolvable, T : FirStatement {
         val csBuilder = commonSystem.getBuilder()
         for (call in partiallyResolvedCalls) {
+            val candidate = call.candidate
             when ((call.calleeReference as FirNamedReference).name) {
-                OperatorNameConventions.GET_VALUE -> TODO()
-                OperatorNameConventions.SET_VALUE -> TODO()
+                OperatorNameConventions.GET_VALUE -> candidate.addConstraintsForGetValueMethod(csBuilder)
+                OperatorNameConventions.SET_VALUE -> candidate.addConstraintsForSetValueMethod(csBuilder)
             }
         }
     }
@@ -54,13 +53,26 @@ class DelegatedPropertyInferenceSession(
     private fun Candidate.addConstraintsForGetValueMethod(commonSystem: ConstraintSystemBuilder) {
         if (expectedType != null) {
             val accessor = symbol.fir as? FirPropertyAccessor ?: return
-            val unsubstitutedReturnType = accessor.returnTypeRef.coneTypeSafe<ConeKotlinType>() ?: return
+            val unsubstitutedParameterType = accessor.returnTypeRef.coneTypeSafe<ConeKotlinType>() ?: return
+
+            val substitutedParameterType = substitutor.substituteOrSelf(unsubstitutedParameterType)
+            commonSystem.addSubtypeConstraint(substitutedParameterType, expectedType, SimpleConstraintSystemConstraintPosition)
+        }
+
+        addConstraintForThis(commonSystem)
+    }
+
+
+    private fun Candidate.addConstraintsForSetValueMethod(commonSystem: ConstraintSystemBuilder) {
+        if (expectedType != null) {
+            val accessor = symbol.fir as? FirPropertyAccessor ?: return
+            val unsubstitutedReturnType = accessor.valueParameters.getOrNull(2)?.returnTypeRef?.coneTypeSafe<ConeKotlinType>() ?: return
 
             val substitutedReturnType = substitutor.substituteOrSelf(unsubstitutedReturnType)
             commonSystem.addSubtypeConstraint(substitutedReturnType, expectedType, SimpleConstraintSystemConstraintPosition)
         }
 
-
+        addConstraintForThis(commonSystem)
     }
 
     private fun Candidate.addConstraintForThis(commonSystem: ConstraintSystemBuilder) {

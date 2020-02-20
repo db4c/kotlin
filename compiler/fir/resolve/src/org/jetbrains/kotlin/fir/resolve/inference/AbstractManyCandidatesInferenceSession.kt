@@ -58,7 +58,7 @@ abstract class AbstractManyCandidatesInferenceSession(
         return !completedCalls.add(call)
     }
 
-    open fun <T> prepareForCompletion(
+    protected open fun <T> prepareForCompletion(
         commonSystem: NewConstraintSystem,
         partiallyResolvedCalls: List<T>
     ) where T : FirResolvable, T : FirStatement {
