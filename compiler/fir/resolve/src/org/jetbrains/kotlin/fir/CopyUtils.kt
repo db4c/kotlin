@@ -16,6 +16,8 @@ import org.jetbrains.kotlin.fir.expressions.builder.*
 import org.jetbrains.kotlin.fir.references.FirControlFlowGraphReference
 import org.jetbrains.kotlin.fir.references.FirNamedReference
 import org.jetbrains.kotlin.fir.references.FirReference
+import org.jetbrains.kotlin.fir.references.FirThisReference
+import org.jetbrains.kotlin.fir.resolve.calls.FirNamedReferenceWithCandidate
 import org.jetbrains.kotlin.fir.scopes.impl.FirIntegerOperatorCall
 import org.jetbrains.kotlin.fir.scopes.impl.FirIntegerOperatorCallBuilder
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
@@ -154,4 +156,41 @@ fun FirCheckNotNullCall.copy(
     arguments += this@copy.arguments
     this.typeRef = resultType
     this.annotations += annotations
+}
+
+fun FirQualifiedAccessExpression.copy(
+    calleeReference: FirNamedReferenceWithCandidate
+): FirQualifiedAccessExpression = when(this) {
+    is FirThisReceiverExpression -> this
+    is FirFunctionCall -> copy(calleeReference = calleeReference, safe = safe)
+    is FirExpressionWithSmartcast -> buildExpressionWithSmartcast {
+        originalExpression = this@copy.originalExpression.copy(calleeReference)
+        typeRef = this@copy.typeRef
+        typesFromSmartCast = this@copy.typesFromSmartCast
+    }
+    else -> buildQualifiedAccessExpression {
+        source = this@copy.source
+        typeRef = this@copy.typeRef
+        annotations += this@copy.annotations
+        safe = this@copy.safe
+        typeArguments += this@copy.typeArguments
+        explicitReceiver = this@copy.explicitReceiver
+        dispatchReceiver = this@copy.dispatchReceiver
+        extensionReceiver = this@copy.extensionReceiver
+        this.calleeReference = calleeReference
+    }
+}
+
+fun FirCallableReferenceAccess.copy(
+    calleeReference: FirNamedReferenceWithCandidate
+): FirCallableReferenceAccess = buildCallableReferenceAccess {
+    source = this@copy.source
+    typeRef = this@copy.typeRef
+    annotations += this@copy.annotations
+    safe = this@copy.safe
+    typeArguments += this@copy.typeArguments
+    explicitReceiver = this@copy.explicitReceiver
+    dispatchReceiver = this@copy.dispatchReceiver
+    extensionReceiver = this@copy.extensionReceiver
+    this.calleeReference = calleeReference
 }

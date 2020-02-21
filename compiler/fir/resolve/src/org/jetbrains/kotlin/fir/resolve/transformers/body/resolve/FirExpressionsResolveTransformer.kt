@@ -43,7 +43,6 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.types.Variance
 
 class FirExpressionsResolveTransformer(transformer: FirBodyResolveTransformer) : FirPartialBodyResolveTransformer(transformer) {
-    private val callResolver: FirCallResolver get() = components.callResolver
     private inline val builtinTypes: BuiltinTypes get() = session.builtinTypes
 
     init {
@@ -128,7 +127,7 @@ class FirExpressionsResolveTransformer(transformer: FirBodyResolveTransformer) :
                 qualifiedAccessExpression
             }
             else -> {
-                val transformedCallee = callResolver.resolveVariableAccessAndSelectCandidate(qualifiedAccessExpression, file)
+                val transformedCallee = callResolver.resolveVariableAccessAndSelectCandidate(qualifiedAccessExpression)
                 // NB: here we can get raw expression because of dropped qualifiers (see transform callee),
                 // so candidate existence must be checked before calling completion
                 if (transformedCallee is FirQualifiedAccessExpression && transformedCallee.candidate() != null) {
@@ -158,7 +157,7 @@ class FirExpressionsResolveTransformer(transformer: FirBodyResolveTransformer) :
         val completeInference =
             try {
                 val initialExplicitReceiver = functionCall.explicitReceiver
-                val resultExpression = callResolver.resolveCallAndSelectCandidate(functionCall, file)
+                val resultExpression = callResolver.resolveCallAndSelectCandidate(functionCall)
                 val resultExplicitReceiver = resultExpression.explicitReceiver
                 if (initialExplicitReceiver !== resultExplicitReceiver && resultExplicitReceiver is FirQualifiedAccess) {
                     // name.invoke() case
@@ -391,7 +390,7 @@ class FirExpressionsResolveTransformer(transformer: FirBodyResolveTransformer) :
     ): CompositeTransformResult<FirStatement> {
         // val resolvedAssignment = transformCallee(variableAssignment)
         variableAssignment.annotations.forEach { it.accept(this, data) }
-        val resolvedAssignment = callResolver.resolveVariableAccessAndSelectCandidate(variableAssignment, file)
+        val resolvedAssignment = callResolver.resolveVariableAccessAndSelectCandidate(variableAssignment)
         val result = if (resolvedAssignment is FirVariableAssignment) {
             val completeAssignment = callCompleter.completeCall(resolvedAssignment, noExpectedType) // TODO: check
             val expectedType = components.typeFromCallee(completeAssignment)

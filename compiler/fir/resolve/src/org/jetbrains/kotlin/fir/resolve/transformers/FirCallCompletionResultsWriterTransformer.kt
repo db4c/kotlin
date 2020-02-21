@@ -43,6 +43,7 @@ class FirCallCompletionResultsWriterTransformer(
     private val typeApproximator: AbstractTypeApproximator,
     private val integerOperatorsTypeUpdater: IntegerOperatorsTypeUpdater,
     private val integerApproximator: IntegerLiteralTypeApproximationTransformer,
+    private val transformProperties: Boolean = false
 ) : FirAbstractTreeTransformer<ExpectedArgumentType?>(phase = FirResolvePhase.IMPLICIT_TYPES_BODY_RESOLVE) {
 
     override fun transformQualifiedAccessExpression(
@@ -346,6 +347,42 @@ class FirCallCompletionResultsWriterTransformer(
         if (data == ExpectedArgumentType.NoApproximation) return constExpression.compose()
         val expectedType = data?.getExpectedType(constExpression)
         return constExpression.transform(integerApproximator, expectedType)
+    }
+
+    fun FirTypedDeclaration.writeResultType() {
+        finalSubstitutor.substituteOrNull(returnTypeRef.coneTypeUnsafe())?.let {
+            replaceReturnTypeRef(returnTypeRef.resolvedTypeFromPrototype(it))
+        }
+    }
+
+    override fun transformProperty(property: FirProperty, data: ExpectedArgumentType?): CompositeTransformResult<FirDeclaration> {
+        if (!transformProperties || property.delegate == null) return property.compose()
+        property.transformGetter(this, data)
+        property.transformSetter(this, data)
+        (property.delegate!! as FirWrappedDelegateExpression).expression.transformSingle(this, data)
+        property.writeResultType()
+        return property.compose()
+    }
+
+    override fun transformPropertyAccessor(
+        propertyAccessor: FirPropertyAccessor,
+        data: ExpectedArgumentType?
+    ): CompositeTransformResult<FirStatement> {
+        if (!transformProperties) return propertyAccessor.compose()
+        propertyAccessor.writeResultType()
+        propertyAccessor.transformValueParameters(this, data)
+        propertyAccessor.body?.transformSingle(this, data)
+        return propertyAccessor.compose()
+    }
+
+    override fun transformValueParameter(
+        valueParameter: FirValueParameter,
+        data: ExpectedArgumentType?
+    ): CompositeTransformResult<FirStatement> {
+        if (transformProperties) {
+            valueParameter.writeResultType()
+        }
+        return valueParameter.compose()
     }
 }
 

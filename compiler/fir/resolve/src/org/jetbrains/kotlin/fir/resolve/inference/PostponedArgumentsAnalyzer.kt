@@ -46,26 +46,26 @@ interface LambdaAnalyzer {
 class PostponedArgumentsAnalyzer(
     private val lambdaAnalyzer: LambdaAnalyzer,
     private val components: InferenceComponents,
-    private val candidate: Candidate,
     private val callResolver: FirCallResolver
 ) {
 
     fun analyze(
         c: PostponedArgumentsAnalyzer.Context,
 //        resolutionCallbacks: KotlinResolutionCallbacks,
-        argument: PostponedResolvedAtomMarker
+        argument: PostponedResolvedAtomMarker,
+        candidate: Candidate
         //diagnosticsHolder: KotlinDiagnosticsHolder
     ) {
         when (argument) {
             is ResolvedLambdaAtom ->
-                analyzeLambda(c, argument/*, diagnosticsHolder*/)
+                analyzeLambda(c, argument, candidate/*, diagnosticsHolder*/)
 
 //            is LambdaWithTypeVariableAsExpectedTypeAtom ->
 //                analyzeLambda(
 //                    c, resolutionCallbacks, argument.transformToResolvedLambda(c.getBuilder()), diagnosticsHolder
 //                )
 
-            is ResolvedCallableReferenceAtom -> processCallableReference(argument)
+            is ResolvedCallableReferenceAtom -> processCallableReference(argument, candidate)
 //
 //            is ResolvedCollectionLiteralAtom -> TODO("Not supported")
 
@@ -73,7 +73,7 @@ class PostponedArgumentsAnalyzer(
         }
     }
 
-    private fun processCallableReference(atom: ResolvedCallableReferenceAtom) {
+    private fun processCallableReference(atom: ResolvedCallableReferenceAtom, candidate: Candidate) {
         if (atom.postponed) {
             callResolver.resolveCallableReference(candidate.csBuilder, atom)
         }
@@ -104,7 +104,8 @@ class PostponedArgumentsAnalyzer(
 
     private fun analyzeLambda(
         c: PostponedArgumentsAnalyzer.Context,
-        lambda: ResolvedLambdaAtom//,
+        lambda: ResolvedLambdaAtom,
+        candidate: Candidate
         //diagnosticHolder: KotlinDiagnosticsHolder
     ) {
         val unitType = components.session.builtinTypes.unitType.type//Unit(components.session.firSymbolProvider).constructType(emptyArray(), false)

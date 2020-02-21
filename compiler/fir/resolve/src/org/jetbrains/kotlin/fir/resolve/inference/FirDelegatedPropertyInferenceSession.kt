@@ -23,12 +23,13 @@ import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintStorage
 import org.jetbrains.kotlin.resolve.calls.inference.model.SimpleConstraintSystemConstraintPosition
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
-class DelegatedPropertyInferenceSession(
+class FirDelegatedPropertyInferenceSession(
     val property: FirProperty,
-    val expectedType: ConeKotlinType?,
     components: BodyResolveComponents,
     postponedArgumentsAnalyzer: PostponedArgumentsAnalyzer,
 ) : AbstractManyCandidatesInferenceSession(components, postponedArgumentsAnalyzer) {
+    val expectedType: ConeKotlinType? = property.returnTypeRef.coneTypeSafe()
+
     override fun inferPostponedVariables(
         lambda: ResolvedLambdaAtom,
         initialStorage: ConstraintStorage
@@ -36,10 +37,7 @@ class DelegatedPropertyInferenceSession(
 
     override fun <T> shouldCompleteResolvedSubAtomsOf(call: T): Boolean where T : FirResolvable, T : FirStatement = true
 
-    override fun <T> prepareForCompletion(
-        commonSystem: NewConstraintSystem,
-        partiallyResolvedCalls: List<T>
-    ) where T : FirResolvable, T : FirStatement {
+    override fun prepareForCompletion(commonSystem: NewConstraintSystem, partiallyResolvedCalls: List<FirResolvable>) {
         val csBuilder = commonSystem.getBuilder()
         for (call in partiallyResolvedCalls) {
             val candidate = call.candidate
@@ -53,9 +51,9 @@ class DelegatedPropertyInferenceSession(
     private fun Candidate.addConstraintsForGetValueMethod(commonSystem: ConstraintSystemBuilder) {
         if (expectedType != null) {
             val accessor = symbol.fir as? FirPropertyAccessor ?: return
-            val unsubstitutedParameterType = accessor.returnTypeRef.coneTypeSafe<ConeKotlinType>() ?: return
+            val unsubstitutedReturnType = accessor.returnTypeRef.coneTypeSafe<ConeKotlinType>() ?: return
 
-            val substitutedParameterType = substitutor.substituteOrSelf(unsubstitutedParameterType)
+            val substitutedParameterType = substitutor.substituteOrSelf(unsubstitutedReturnType)
             commonSystem.addSubtypeConstraint(substitutedParameterType, expectedType, SimpleConstraintSystemConstraintPosition)
         }
 
@@ -66,9 +64,9 @@ class DelegatedPropertyInferenceSession(
     private fun Candidate.addConstraintsForSetValueMethod(commonSystem: ConstraintSystemBuilder) {
         if (expectedType != null) {
             val accessor = symbol.fir as? FirPropertyAccessor ?: return
-            val unsubstitutedReturnType = accessor.valueParameters.getOrNull(2)?.returnTypeRef?.coneTypeSafe<ConeKotlinType>() ?: return
+            val unsubstitutedParameterType = accessor.valueParameters.getOrNull(2)?.returnTypeRef?.coneTypeSafe<ConeKotlinType>() ?: return
 
-            val substitutedReturnType = substitutor.substituteOrSelf(unsubstitutedReturnType)
+            val substitutedReturnType = substitutor.substituteOrSelf(unsubstitutedParameterType)
             commonSystem.addSubtypeConstraint(substitutedReturnType, expectedType, SimpleConstraintSystemConstraintPosition)
         }
 

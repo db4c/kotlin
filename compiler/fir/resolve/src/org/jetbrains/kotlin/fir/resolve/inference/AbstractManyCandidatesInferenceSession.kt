@@ -11,9 +11,13 @@ import org.jetbrains.kotlin.fir.resolve.BodyResolveComponents
 import org.jetbrains.kotlin.fir.resolve.calls.candidate
 import org.jetbrains.kotlin.fir.resolve.calls.Candidate
 import org.jetbrains.kotlin.fir.resolve.calls.FirNamedReferenceWithCandidate
+import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.coneTypeUnsafe
+import org.jetbrains.kotlin.fir.visitors.transformSingle
 import org.jetbrains.kotlin.resolve.calls.inference.NewConstraintSystem
+import org.jetbrains.kotlin.resolve.calls.inference.buildAbstractResultingSubstitutor
+import org.jetbrains.kotlin.resolve.calls.inference.buildResultingSubstitutor
 import org.jetbrains.kotlin.resolve.calls.inference.components.KotlinConstraintSystemCompleter
 import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintStorage
 import org.jetbrains.kotlin.resolve.calls.inference.model.SimpleConstraintSystemConstraintPosition
@@ -38,6 +42,8 @@ abstract class AbstractManyCandidatesInferenceSession(
             ?.currentStorage()
             ?: ConstraintStorage.Empty
 
+    lateinit var resultingConstraintSystem: NewConstraintSystem
+
     override fun shouldRunCompletion(candidate: Candidate): Boolean {
         return false
     }
@@ -58,14 +64,14 @@ abstract class AbstractManyCandidatesInferenceSession(
         return !completedCalls.add(call)
     }
 
-    protected open fun <T> prepareForCompletion(
+    protected open fun prepareForCompletion(
         commonSystem: NewConstraintSystem,
-        partiallyResolvedCalls: List<T>
-    ) where T : FirResolvable, T : FirStatement {
+        partiallyResolvedCalls: List<FirResolvable>
+    ) {
         // do nothing
     }
 
-    fun <T> resolveCandidates(): List<T> where T : FirResolvable, T : FirStatement {
+    fun completeCandidates(): List<FirResolvable> {
         val hasOneSuccessfulAndOneErrorCandidate = if (partiallyResolvedCalls.size > 1) {
             val errorCount = partiallyResolvedCalls.count {
                 it.candidate.system.currentStorage().errors.isNotEmpty()
@@ -83,13 +89,20 @@ abstract class AbstractManyCandidatesInferenceSession(
                 atoms,
                 unitType
             ) {
-                postponedArgumentsAnalyzer.analyze(constraintSystem.asPostponedArgumentsAnalyzerContext(), it)
+                postponedArgumentsAnalyzer.analyze(constraintSystem.asPostponedArgumentsAnalyzerContext(), it,
+                                                   (atoms.first() as FirResolvable).candidate)
             }
+
+//            val finalSubstitutor = constraintSystem.asReadOnlyStorage().buildAbstractResultingSubstitutor(components.inferenceComponents.ctx) as ConeSubstitutor
+//            val completionResultsWriter = components.callCompleter.createCompletionResultsWriter(finalSubstitutor)
+//            atoms.forEach {
+//                it.transformSingle(completionResultsWriter, null)
+//            }
         }
 
         @Suppress("UNCHECKED_CAST")
-        val resolvedCalls = partiallyResolvedCalls as List<T>
-        val allCandidates = mutableListOf<T>()
+        val resolvedCalls = partiallyResolvedCalls as List<FirResolvable>
+        val allCandidates = mutableListOf<FirResolvable>()
 
         if (hasOneSuccessfulAndOneErrorCandidate) {
             val goodCandidate = resolvedCalls.first { it.candidate.system.currentStorage().errors.isEmpty() }
@@ -103,9 +116,7 @@ abstract class AbstractManyCandidatesInferenceSession(
                         for ((typeVariable, fixedType) in allCandidates[0].candidate.system.fixedTypeVariables) {
                             this.notFixedTypeVariables[typeVariable]?.let {
                                 val type = it.typeVariable.defaultType()
-                                addEqualityConstraint(type, fixedType,
-                                                      SimpleConstraintSystemConstraintPosition
-                                )
+                                addEqualityConstraint(type, fixedType, SimpleConstraintSystemConstraintPosition)
                                 // TODO
                                 // atomsToAnalyze += StubResolvedAtom(typeVariable)
                             }
@@ -120,7 +131,9 @@ abstract class AbstractManyCandidatesInferenceSession(
                 addOtherSystem(currentConstraintSystem)
             }
             prepareForCompletion(commonSystem, resolvedCalls)
-            runCompletion(commonSystem, resolvedCalls)
+            @Suppress("UNCHECKED_CAST")
+            runCompletion(commonSystem, resolvedCalls as List<FirStatement>)
+            resultingConstraintSystem = commonSystem
             allCandidates += resolvedCalls
         }
 
@@ -129,4 +142,8 @@ abstract class AbstractManyCandidatesInferenceSession(
 
     protected val FirResolvable.candidate: Candidate
         get() = candidate()!!
+
+    fun createFinalSubstitutor(): ConeSubstitutor {
+        return resultingConstraintSystem.asReadOnlyStorage().buildAbstractResultingSubstitutor(components.inferenceComponents.ctx) as ConeSubstitutor
+    }
 }
