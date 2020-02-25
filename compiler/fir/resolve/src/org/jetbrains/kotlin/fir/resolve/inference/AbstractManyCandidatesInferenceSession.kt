@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.fir.resolve.calls.candidate
 import org.jetbrains.kotlin.fir.resolve.calls.Candidate
 import org.jetbrains.kotlin.fir.resolve.calls.FirNamedReferenceWithCandidate
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
+import org.jetbrains.kotlin.fir.resolve.transformers.FirCallCompletionResultsWriterTransformer
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.coneTypeUnsafe
 import org.jetbrains.kotlin.fir.visitors.transformSingle
@@ -98,8 +99,12 @@ abstract class AbstractManyCandidatesInferenceSession(
                 )
             }
 
-            val finalSubstitutor = constraintSystem.asReadOnlyStorage().buildAbstractResultingSubstitutor(components.inferenceComponents.ctx) as ConeSubstitutor
-            val completionResultsWriter = components.callCompleter.createCompletionResultsWriter(finalSubstitutor)
+            val finalSubstitutor = constraintSystem.asReadOnlyStorage()
+                .buildAbstractResultingSubstitutor(components.inferenceComponents.ctx) as ConeSubstitutor
+            val completionResultsWriter = components.callCompleter.createCompletionResultsWriter(
+                finalSubstitutor,
+                mode = FirCallCompletionResultsWriterTransformer.Mode.FakeOverrideCompletion
+            )
             atoms.forEach {
                 it.transformSingle(completionResultsWriter, null)
             }
@@ -124,6 +129,7 @@ abstract class AbstractManyCandidatesInferenceSession(
         get() = candidate()!!
 
     fun createFinalSubstitutor(): ConeSubstitutor {
-        return resultingConstraintSystem.asReadOnlyStorage().buildAbstractResultingSubstitutor(components.inferenceComponents.ctx) as ConeSubstitutor
+        return resultingConstraintSystem.asReadOnlyStorage()
+            .buildAbstractResultingSubstitutor(components.inferenceComponents.ctx) as ConeSubstitutor
     }
 }

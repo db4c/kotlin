@@ -40,7 +40,7 @@ FILE: delegateInference.kt
             super<R|kotlin/Any|>()
         }
 
-        public final var x: R|kotlin/Boolean|by R|/FreezableVar.FreezableVar|(Boolean(true))
+        public final var x: R|kotlin/Boolean|by R|/FreezableVar.FreezableVar|<R|kotlin/Boolean|>(Boolean(true))
             public get(): R|kotlin/Boolean| {
                 ^ D|/Test.x|.R|FakeOverride</FreezableVar.getValue: R|kotlin/Boolean|>|(this@R|/Test|, ::R|/Test.x|)
             }
@@ -48,7 +48,7 @@ FILE: delegateInference.kt
                 D|/Test.x|.R|FakeOverride</FreezableVar.setValue: R|kotlin/Unit|>|(this@R|/Test|, ::R|/Test.x|, R|<local>/x|)
             }
 
-        public final var y: R|kotlin/String|by R|/FreezableVar.FreezableVar|(String())
+        public final var y: R|kotlin/String|by R|/FreezableVar.FreezableVar|<R|kotlin/String|>(String())
             public get(): R|kotlin/String| {
                 ^ D|/Test.y|.R|FakeOverride</FreezableVar.getValue: R|kotlin/String|>|(this@R|/Test|, ::R|/Test.y|)
             }

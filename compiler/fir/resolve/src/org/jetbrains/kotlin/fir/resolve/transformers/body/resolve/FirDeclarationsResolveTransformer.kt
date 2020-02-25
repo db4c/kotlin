@@ -150,17 +150,7 @@ class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransformer) 
         components.inferenceComponents.withInferenceSession(inferenceSession) {
             property.transformAccessors()
             val resolvedCandidates = inferenceSession.completeCandidates()
-            val completionResultsWriter = callCompleter.createCompletionResultsWriter(
-                inferenceSession.createFinalSubstitutor(),
-                transformProperties = true
-            )
-//            resolvedCandidates.forEach {
-//                val function = it.candidate()?.symbol?.fir as? FirTypedDeclaration ?: return@forEach
-//                with(completionResultsWriter) {
-//                    function.writeResultType()
-//                }
-//                it.transformSingle(completionResultsWriter, null)
-//            }
+            val completionResultsWriter = FirDeclarationCompletionResultsWriter(inferenceSession.createFinalSubstitutor())
             property.transformSingle(completionResultsWriter, null)
         }
     }

@@ -129,13 +129,16 @@ class FirCallCompleter(
         }
     }
 
-    fun createCompletionResultsWriter(substitutor: ConeSubstitutor, transformProperties: Boolean = false): FirCallCompletionResultsWriterTransformer {
+    fun createCompletionResultsWriter(
+        substitutor: ConeSubstitutor,
+        mode: FirCallCompletionResultsWriterTransformer.Mode = FirCallCompletionResultsWriterTransformer.Mode.Normal
+    ): FirCallCompletionResultsWriterTransformer {
         return FirCallCompletionResultsWriterTransformer(
             session, substitutor, returnTypeCalculator,
             inferenceComponents.approximator,
             integerOperatorsTypeUpdater,
             integerLiteralTypeApproximator,
-            transformProperties
+            mode
         )
     }
 

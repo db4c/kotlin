@@ -28,9 +28,7 @@ import org.jetbrains.kotlin.fir.types.builder.buildErrorTypeRef
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.builder.buildTypeProjectionWithVariance
 import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
-import org.jetbrains.kotlin.fir.visitors.CompositeTransformResult
-import org.jetbrains.kotlin.fir.visitors.compose
-import org.jetbrains.kotlin.fir.visitors.transformSingle
+import org.jetbrains.kotlin.fir.visitors.*
 import org.jetbrains.kotlin.types.AbstractTypeApproximator
 import org.jetbrains.kotlin.types.TypeApproximatorConfiguration
 import org.jetbrains.kotlin.types.Variance
@@ -43,8 +41,14 @@ class FirCallCompletionResultsWriterTransformer(
     private val typeApproximator: AbstractTypeApproximator,
     private val integerOperatorsTypeUpdater: IntegerOperatorsTypeUpdater,
     private val integerApproximator: IntegerLiteralTypeApproximationTransformer,
-    private val transformProperties: Boolean = false
+    private val mode: Mode = Mode.Normal
 ) : FirAbstractTreeTransformer<ExpectedArgumentType?>(phase = FirResolvePhase.IMPLICIT_TYPES_BODY_RESOLVE) {
+
+    private val declarationWriter by lazy { FirDeclarationCompletionResultsWriter(finalSubstitutor) }
+
+    enum class Mode {
+        Normal, FakeOverrideCompletion
+    }
 
     override fun transformQualifiedAccessExpression(
         qualifiedAccessExpression: FirQualifiedAccessExpression,
@@ -228,6 +232,10 @@ class FirCallCompletionResultsWriterTransformer(
         result.replaceTypeRef(resultType)
         result.replaceTypeArguments(typeArguments)
 
+        if (mode == Mode.FakeOverrideCompletion) {
+            calleeReference.candidateSymbol.fir.transformSingle(declarationWriter, null)
+        }
+
         return result.compose()
     }
 
@@ -348,42 +356,6 @@ class FirCallCompletionResultsWriterTransformer(
         val expectedType = data?.getExpectedType(constExpression)
         return constExpression.transform(integerApproximator, expectedType)
     }
-
-    fun FirTypedDeclaration.writeResultType() {
-        finalSubstitutor.substituteOrNull(returnTypeRef.coneTypeUnsafe())?.let {
-            replaceReturnTypeRef(returnTypeRef.resolvedTypeFromPrototype(it))
-        }
-    }
-
-    override fun transformProperty(property: FirProperty, data: ExpectedArgumentType?): CompositeTransformResult<FirDeclaration> {
-        if (!transformProperties || property.delegate == null) return property.compose()
-        property.transformGetter(this, data)
-        property.transformSetter(this, data)
-        (property.delegate!! as FirWrappedDelegateExpression).expression.transformSingle(this, data)
-        property.writeResultType()
-        return property.compose()
-    }
-
-    override fun transformPropertyAccessor(
-        propertyAccessor: FirPropertyAccessor,
-        data: ExpectedArgumentType?
-    ): CompositeTransformResult<FirStatement> {
-        if (!transformProperties) return propertyAccessor.compose()
-        propertyAccessor.writeResultType()
-        propertyAccessor.transformValueParameters(this, data)
-        propertyAccessor.body?.transformSingle(this, data)
-        return propertyAccessor.compose()
-    }
-
-    override fun transformValueParameter(
-        valueParameter: FirValueParameter,
-        data: ExpectedArgumentType?
-    ): CompositeTransformResult<FirStatement> {
-        if (transformProperties) {
-            valueParameter.writeResultType()
-        }
-        return valueParameter.compose()
-    }
 }
 
 sealed class ExpectedArgumentType {
@@ -410,4 +382,49 @@ private fun ConeKotlinType.approximateIfPossible(expectedType: ConeKotlinType?) 
     getApproximatedType(expectedType)
 } else {
     this
+}
+
+class FirDeclarationCompletionResultsWriter(private val finalSubstitutor: ConeSubstitutor) : FirDefaultTransformer<Nothing?>() {
+    override fun <E : FirElement> transformElement(element: E, data: Nothing?): CompositeTransformResult<E> {
+        return element.compose()
+    }
+
+    override fun transformSimpleFunction(simpleFunction: FirSimpleFunction, data: Nothing?): CompositeTransformResult<FirDeclaration> {
+        simpleFunction.transformReturnTypeRef(this, data)
+        simpleFunction.transformValueParameters(this, data)
+        simpleFunction.transformReceiverTypeRef(this, data)
+        return simpleFunction.compose()
+    }
+
+    override fun transformProperty(property: FirProperty, data: Nothing?): CompositeTransformResult<FirDeclaration> {
+        property.transformGetter(this, data)
+        property.transformSetter(this, data)
+        (property.delegate!! as FirWrappedDelegateExpression).expression.transformSingle(this, data)
+        property.transformReturnTypeRef(this, data)
+        property.transformReceiverTypeRef(this, data)
+        return property.compose()
+    }
+
+    override fun transformPropertyAccessor(
+        propertyAccessor: FirPropertyAccessor,
+        data: Nothing?
+    ): CompositeTransformResult<FirStatement> {
+        propertyAccessor.transformReturnTypeRef(this, data)
+        propertyAccessor.transformValueParameters(this, data)
+        return propertyAccessor.compose()
+    }
+
+    override fun transformValueParameter(
+        valueParameter: FirValueParameter,
+        data: Nothing?
+    ): CompositeTransformResult<FirStatement> {
+        valueParameter.transformReturnTypeRef(this, data)
+        return valueParameter.compose()
+    }
+
+    override fun transformTypeRef(typeRef: FirTypeRef, data: Nothing?): CompositeTransformResult<FirTypeRef> {
+        return finalSubstitutor.substituteOrNull(typeRef.coneTypeUnsafe())?.let {
+            typeRef.resolvedTypeFromPrototype(it)
+        }?.compose() ?: typeRef.compose()
+    }
 }
