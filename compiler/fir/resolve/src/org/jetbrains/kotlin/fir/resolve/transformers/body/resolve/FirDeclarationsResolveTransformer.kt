@@ -107,6 +107,7 @@ class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransformer) 
                 withScopeCleanup(localScopes) {
                     components.withContainer(property) {
                         if (property.delegate != null) {
+                            localScopes.addIfNotNull(primaryConstructorParametersScope)
                             transformPropertyWithDelegate(property)
                         } else {
                             withScopeCleanup(localScopes) {
@@ -136,51 +137,31 @@ class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransformer) 
 
     private fun transformPropertyWithDelegate(property: FirProperty) {
         val delegateExpression = (property.delegate as FirWrappedDelegateExpression).expression
+
+        delegateExpression.transformSingle(transformer, ResolutionMode.ContextDependent)
+
         val inferenceSession = FirDelegatedPropertyInferenceSession(
             property,
+            delegateExpression,
             components,
             callCompleter.createPostponedArgumentsAnalyzer()
         )
 
         components.inferenceComponents.withInferenceSession(inferenceSession) {
-            delegateExpression.transformSingle(transformer, ResolutionMode.ContextDependent)
             property.transformAccessors()
             val resolvedCandidates = inferenceSession.completeCandidates()
             val completionResultsWriter = callCompleter.createCompletionResultsWriter(
                 inferenceSession.createFinalSubstitutor(),
                 transformProperties = true
             )
-            resolvedCandidates.forEach {
-                val function = it.candidate()?.symbol?.fir as? FirTypedDeclaration ?: return@forEach
-                with(completionResultsWriter) {
-                    function.writeResultType()
-                }
-            }
+//            resolvedCandidates.forEach {
+//                val function = it.candidate()?.symbol?.fir as? FirTypedDeclaration ?: return@forEach
+//                with(completionResultsWriter) {
+//                    function.writeResultType()
+//                }
+//                it.transformSingle(completionResultsWriter, null)
+//            }
             property.transformSingle(completionResultsWriter, null)
-        }
-    }
-
-    private fun tryResolveProvideDelegate(
-        resolvedDelegateExpression: FirExpression,
-        initialExplicitReceiver: FirExpression?
-    ): FirExpression? {
-        return null
-        val referenceBeforeCompletion = (resolvedDelegateExpression as FirResolvable).calleeReference
-        val provideDelegateCall = buildFunctionCall {
-            source = resolvedDelegateExpression.source
-            explicitReceiver = callCompleter.completeCallIfNeeded(resolvedDelegateExpression, noExpectedType, initialExplicitReceiver)
-            calleeReference = buildSimpleNamedReference {
-                name = OperatorNameConventions.PROVIDE_DELEGATE
-            }
-        }
-        // TODO: handle completion results writer
-        val resolvedProvideDelegateCall = callResolver.resolveCallAndSelectCandidate(provideDelegateCall)
-        return when (resolvedProvideDelegateCall.calleeReference) {
-            is FirResolvedNamedReference -> resolvedProvideDelegateCall
-            else -> {
-                resolvedDelegateExpression
-                null
-            }
         }
     }
 

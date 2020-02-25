@@ -578,6 +578,11 @@ public class FirDiagnosticsWithLightTreeTestGenerated extends AbstractFirDiagnos
         public void testDelegateInference() throws Exception {
             runTest("compiler/fir/resolve/testData/resolve/delegates/delegateInference.kt");
         }
+
+        @TestMetadata("delegateWithLambda.kt")
+        public void testDelegateWithLambda() throws Exception {
+            runTest("compiler/fir/resolve/testData/resolve/delegates/delegateWithLambda.kt");
+        }
     }
 
     @TestMetadata("compiler/fir/resolve/testData/resolve/diagnostics")

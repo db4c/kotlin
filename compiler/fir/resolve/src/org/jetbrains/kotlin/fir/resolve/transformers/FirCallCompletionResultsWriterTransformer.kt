@@ -85,7 +85,7 @@ class FirCallCompletionResultsWriterTransformer(
     private fun FirResolvedTypeRef.substituteTypeRef(
         candidate: Candidate,
     ): FirResolvedTypeRef {
-        val initialType = candidate.substitutor.substituteOrNull(type)
+        val initialType = candidate.substitutor.substituteOrSelf(type)
         val finalType = finalSubstitutor.substituteOrNull(initialType)?.let { substitutedType ->
             typeApproximator.approximateToSuperType(
                 substitutedType, TypeApproximatorConfiguration.FinalApproximationAfterResolutionAndInference,
@@ -225,10 +225,10 @@ class FirCallCompletionResultsWriterTransformer(
             }
         }
 
-        return result.copy(
-            resultType = resultType,
-            typeArguments = typeArguments,
-        ).compose()
+        result.replaceTypeRef(resultType)
+        result.replaceTypeArguments(typeArguments)
+
+        return result.compose()
     }
 
     private fun FirTypeRef.substitute(candidate: Candidate): ConeKotlinType =

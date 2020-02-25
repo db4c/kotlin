@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.fir.resolve.inference
 
+import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirResolvable
 import org.jetbrains.kotlin.fir.expressions.FirStatement
 import org.jetbrains.kotlin.fir.resolve.BodyResolveComponents
@@ -25,11 +26,22 @@ import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 abstract class AbstractManyCandidatesInferenceSession(
     protected val components: BodyResolveComponents,
+    initialCall: FirExpression,
     private val postponedArgumentsAnalyzer: PostponedArgumentsAnalyzer,
 ) : FirInferenceSession() {
     private val errorCalls: MutableList<FirResolvable> = mutableListOf()
     private val partiallyResolvedCalls: MutableList<FirResolvable> = mutableListOf()
     private val completedCalls: MutableSet<FirResolvable> = mutableSetOf()
+
+    init {
+        val initialCandidate = (initialCall as? FirResolvable)
+            ?.calleeReference
+            ?.safeAs<FirNamedReferenceWithCandidate>()
+            ?.candidate
+        if (initialCandidate != null) {
+            partiallyResolvedCalls += initialCall as FirResolvable
+        }
+    }
 
     private val unitType: ConeKotlinType = components.session.builtinTypes.unitType.coneTypeUnsafe()
 
@@ -72,70 +84,38 @@ abstract class AbstractManyCandidatesInferenceSession(
     }
 
     fun completeCandidates(): List<FirResolvable> {
-        val hasOneSuccessfulAndOneErrorCandidate = if (partiallyResolvedCalls.size > 1) {
-            val errorCount = partiallyResolvedCalls.count {
-                it.candidate.system.currentStorage().errors.isNotEmpty()
-            }
-            errorCount > 0 && errorCount < partiallyResolvedCalls.size
-        } else {
-            false
-        }
-
         fun runCompletion(constraintSystem: NewConstraintSystem, atoms: List<FirStatement>) {
             components.callCompleter.completer.complete(
                 constraintSystem.asConstraintSystemCompleterContext(),
-                KotlinConstraintSystemCompleter
-                    .ConstraintSystemCompletionMode.FULL,
+                KotlinConstraintSystemCompleter.ConstraintSystemCompletionMode.FULL,
                 atoms,
                 unitType
             ) {
-                postponedArgumentsAnalyzer.analyze(constraintSystem.asPostponedArgumentsAnalyzerContext(), it,
-                                                   (atoms.first() as FirResolvable).candidate)
+                postponedArgumentsAnalyzer.analyze(
+                    constraintSystem.asPostponedArgumentsAnalyzerContext(),
+                    it,
+                    (atoms.first() as FirResolvable).candidate
+                )
             }
 
-//            val finalSubstitutor = constraintSystem.asReadOnlyStorage().buildAbstractResultingSubstitutor(components.inferenceComponents.ctx) as ConeSubstitutor
-//            val completionResultsWriter = components.callCompleter.createCompletionResultsWriter(finalSubstitutor)
-//            atoms.forEach {
-//                it.transformSingle(completionResultsWriter, null)
-//            }
+            val finalSubstitutor = constraintSystem.asReadOnlyStorage().buildAbstractResultingSubstitutor(components.inferenceComponents.ctx) as ConeSubstitutor
+            val completionResultsWriter = components.callCompleter.createCompletionResultsWriter(finalSubstitutor)
+            atoms.forEach {
+                it.transformSingle(completionResultsWriter, null)
+            }
         }
 
         @Suppress("UNCHECKED_CAST")
         val resolvedCalls = partiallyResolvedCalls as List<FirResolvable>
         val allCandidates = mutableListOf<FirResolvable>()
-
-        if (hasOneSuccessfulAndOneErrorCandidate) {
-            val goodCandidate = resolvedCalls.first { it.candidate.system.currentStorage().errors.isEmpty() }
-            val badCandidate = resolvedCalls.first { it.candidate.system.currentStorage().errors.isNotEmpty() }
-
-            for (call in listOf(goodCandidate, badCandidate)) {
-                val atomsToAnalyze: MutableList<FirStatement> = mutableListOf(call as FirStatement)
-                val system = components.inferenceComponents.createConstraintSystem().apply {
-                    addOtherSystem(call.candidate.system.currentStorage())
-                    if (call == badCandidate) {
-                        for ((typeVariable, fixedType) in allCandidates[0].candidate.system.fixedTypeVariables) {
-                            this.notFixedTypeVariables[typeVariable]?.let {
-                                val type = it.typeVariable.defaultType()
-                                addEqualityConstraint(type, fixedType, SimpleConstraintSystemConstraintPosition)
-                                // TODO
-                                // atomsToAnalyze += StubResolvedAtom(typeVariable)
-                            }
-                        }
-                    }
-                }
-                runCompletion(system, atomsToAnalyze)
-                allCandidates += call
-            }
-        } else {
-            val commonSystem = components.inferenceComponents.createConstraintSystem().apply {
-                addOtherSystem(currentConstraintSystem)
-            }
-            prepareForCompletion(commonSystem, resolvedCalls)
-            @Suppress("UNCHECKED_CAST")
-            runCompletion(commonSystem, resolvedCalls as List<FirStatement>)
-            resultingConstraintSystem = commonSystem
-            allCandidates += resolvedCalls
+        val commonSystem = components.inferenceComponents.createConstraintSystem().apply {
+            addOtherSystem(currentConstraintSystem)
         }
+        prepareForCompletion(commonSystem, resolvedCalls)
+        @Suppress("UNCHECKED_CAST")
+        runCompletion(commonSystem, resolvedCalls as List<FirStatement>)
+        resultingConstraintSystem = commonSystem
+        allCandidates += resolvedCalls
 
         return allCandidates
     }

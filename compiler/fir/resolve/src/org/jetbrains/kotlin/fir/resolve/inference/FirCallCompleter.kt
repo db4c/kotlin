@@ -84,11 +84,6 @@ class FirCallCompleter(
             call.resultType = typeRef.resolvedTypeFromPrototype(initialType)
         }
 
-        if (!inferenceSession.shouldRunCompletion(candidate)) {
-            inferenceSession.addPartiallyResolvedCall(call)
-            return call
-        }
-
         if (expectedTypeRef is FirResolvedTypeRef) {
             candidate.system.addSubtypeConstraint(initialType, expectedTypeRef.type, SimpleConstraintSystemConstraintPosition)
         }
@@ -97,29 +92,40 @@ class FirCallCompleter(
 
         val analyzer = createPostponedArgumentsAnalyzer()
         call.transformSingle(InvocationKindTransformer, null)
-        val shouldRunCompletion =
-            completionMode == ConstraintSystemCompletionMode.FULL && inferenceSession.shouldRunCompletion(candidate)
-        if (shouldRunCompletion) {
-            completer.complete(candidate.system.asConstraintSystemCompleterContext(), completionMode, listOf(call), initialType) {
-                analyzer.analyze(candidate.system.asPostponedArgumentsAnalyzerContext(), it, candidate)
+
+        return when (completionMode) {
+            ConstraintSystemCompletionMode.FULL -> {
+                if (inferenceSession.shouldRunCompletion(candidate)) {
+                    completer.complete(candidate.system.asConstraintSystemCompleterContext(), completionMode, listOf(call), initialType) {
+                        analyzer.analyze(candidate.system.asPostponedArgumentsAnalyzerContext(), it, candidate)
+                    }
+                    val finalSubstitutor =
+                        candidate.system.asReadOnlyStorage().buildAbstractResultingSubstitutor(inferenceComponents.ctx) as ConeSubstitutor
+                    val completedCall = call.transformSingle(
+                        FirCallCompletionResultsWriterTransformer(
+                            session, finalSubstitutor, returnTypeCalculator,
+                            inferenceComponents.approximator,
+                            integerOperatorsTypeUpdater,
+                            integerLiteralTypeApproximator
+                        ),
+                        null
+                    )
+                    inferenceSession.addCompetedCall(completedCall)
+                    completedCall
+                } else {
+                    inferenceSession.addPartiallyResolvedCall(call)
+                    call
+                }
             }
-            val finalSubstitutor =
-                candidate.system.asReadOnlyStorage().buildAbstractResultingSubstitutor(inferenceComponents.ctx) as ConeSubstitutor
-            val completedCall = call.transformSingle(
-                FirCallCompletionResultsWriterTransformer(
-                    session, finalSubstitutor, returnTypeCalculator,
-                    inferenceComponents.approximator,
-                    integerOperatorsTypeUpdater,
-                    integerLiteralTypeApproximator
-                ),
-                null
-            )
-            inferenceSession.addCompetedCall(completedCall)
-            return completedCall
-        } else {
-            val approximatedCall = call.transformSingle(integerOperatorsTypeUpdater, null)
-            inferenceSession.addPartiallyResolvedCall(approximatedCall)
-            return approximatedCall
+
+            ConstraintSystemCompletionMode.PARTIAL -> {
+                completer.complete(candidate.system.asConstraintSystemCompleterContext(), completionMode, listOf(call), initialType) {
+                    analyzer.analyze(candidate.system.asPostponedArgumentsAnalyzerContext(), it, candidate)
+                }
+                val approximatedCall = call.transformSingle(integerOperatorsTypeUpdater, null)
+                inferenceSession.addPartiallyResolvedCall(approximatedCall)
+                approximatedCall
+            }
         }
     }
 

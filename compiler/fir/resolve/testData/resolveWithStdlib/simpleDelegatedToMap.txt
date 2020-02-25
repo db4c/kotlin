@@ -7,7 +7,7 @@ FILE: simpleDelegatedToMap.kt
         public final val map: R|kotlin/collections/MutableMap<kotlin/String, kotlin/Any>| = R|<local>/map|
             public get(): R|kotlin/collections/MutableMap<kotlin/String, kotlin/Any>|
 
-        public final var foo: <ERROR TYPE REF: Ambiguity: getValue, [kotlin/collections/getValue, kotlin/collections/getValue, kotlin/collections/getValue]>by R|<local>/map|
+        public final var foo: <ERROR TYPE REF: Ambiguity: getValue, [kotlin/collections/getValue, kotlin/collections/getValue, kotlin/collections/getValue]>by this@R|/C|.R|/C.map|
             public get(): <ERROR TYPE REF: Ambiguity: getValue, [kotlin/collections/getValue, kotlin/collections/getValue, kotlin/collections/getValue]> {
                 ^ D|/C.foo|.<Ambiguity: getValue, [kotlin/collections/getValue, kotlin/collections/getValue, kotlin/collections/getValue]>#(this@R|/C|, ::R|/C.foo|)
             }
