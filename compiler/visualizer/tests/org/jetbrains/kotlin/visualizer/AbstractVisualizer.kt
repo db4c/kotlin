@@ -22,8 +22,8 @@ abstract class AbstractVisualizer : KotlinMultiFileTestWithJava<KotlinBaseTest.T
     ): TestModule? = null
 
 
-    override fun createTestFile(module: TestModule?, fileName: String, text: String, directives: Map<String, String>): TestFile? =
-        null
+    override fun createTestFile(module: TestModule?, fileName: String, text: String, directives: Map<String, String>): TestFile =
+        TestFile(name, text)
 
 
     override fun doMultiFileTest(wholeFile: File, files: List<TestFile>) {
