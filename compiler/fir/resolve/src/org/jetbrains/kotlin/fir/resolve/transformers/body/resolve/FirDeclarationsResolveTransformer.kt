@@ -136,9 +136,9 @@ class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransformer) 
     }
 
     private fun transformPropertyWithDelegate(property: FirProperty) {
-        val delegateExpression = (property.delegate as FirWrappedDelegateExpression).expression
+        property.transformDelegate(transformer, ResolutionMode.ContextDependent)
 
-        delegateExpression.transformSingle(transformer, ResolutionMode.ContextDependent)
+        val delegateExpression = property.delegate!!
 
         val inferenceSession = FirDelegatedPropertyInferenceSession(
             property,
@@ -155,16 +155,38 @@ class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransformer) 
         }
     }
 
+    override fun transformWrappedDelegateExpression(
+        wrappedDelegateExpression: FirWrappedDelegateExpression,
+        data: ResolutionMode,
+    ): CompositeTransformResult<FirStatement> {
+        val delegateProvider = wrappedDelegateExpression.delegateProvider.transformSingle(transformer, ResolutionMode.ContextDependent)
+        when (val calleeReference = (delegateProvider as FirResolvable).calleeReference) {
+            is FirResolvedNamedReference -> return delegateProvider.compose()
+            is FirNamedReferenceWithCandidate -> {
+                val candidate = calleeReference.candidate
+                if (candidate.system.currentStorage().errors.isEmpty()) {
+                    return delegateProvider.compose()
+                }
+            }
+        }
+
+        return wrappedDelegateExpression.expression.transform(transformer, ResolutionMode.ContextDependent)
+    }
+
     private fun transformLocalVariable(variable: FirProperty): CompositeTransformResult<FirProperty> {
         assert(variable.isLocal)
-        val resolutionMode = withExpectedType(variable.returnTypeRef)
-        variable.transformInitializer(transformer, resolutionMode)
-            .transformOtherChildren(transformer, resolutionMode)
-            .transformInitializer(integerLiteralTypeApproximator, null)
-        if (variable.initializer != null) {
-            storeVariableReturnType(variable)
+        if (variable.delegate != null) {
+            transformPropertyWithDelegate(variable)
+        } else {
+            val resolutionMode = withExpectedType(variable.returnTypeRef)
+            variable.transformInitializer(transformer, resolutionMode)
+                .transformOtherChildren(transformer, resolutionMode)
+                .transformInitializer(integerLiteralTypeApproximator, null)
+            if (variable.initializer != null) {
+                storeVariableReturnType(variable)
+            }
+            variable.transformAccessors()
         }
-        variable.transformAccessors()
         localScopes.lastOrNull()?.storeVariable(variable)
         variable.replaceResolvePhase(transformerPhase)
         dataFlowAnalyzer.exitLocalVariableDeclaration(variable)

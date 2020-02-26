@@ -583,6 +583,11 @@ public class FirDiagnosticsTestGenerated extends AbstractFirDiagnosticsTest {
         public void testDelegateWithLambda() throws Exception {
             runTest("compiler/fir/resolve/testData/resolve/delegates/delegateWithLambda.kt");
         }
+
+        @TestMetadata("provideDelegate.kt")
+        public void testProvideDelegate() throws Exception {
+            runTest("compiler/fir/resolve/testData/resolve/delegates/provideDelegate.kt");
+        }
     }
 
     @TestMetadata("compiler/fir/resolve/testData/resolve/diagnostics")

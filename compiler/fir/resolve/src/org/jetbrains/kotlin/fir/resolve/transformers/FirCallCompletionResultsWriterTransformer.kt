@@ -399,7 +399,7 @@ class FirDeclarationCompletionResultsWriter(private val finalSubstitutor: ConeSu
     override fun transformProperty(property: FirProperty, data: Nothing?): CompositeTransformResult<FirDeclaration> {
         property.transformGetter(this, data)
         property.transformSetter(this, data)
-        (property.delegate!! as FirWrappedDelegateExpression).expression.transformSingle(this, data)
+//        property.transformDelegate(this, data)
         property.transformReturnTypeRef(this, data)
         property.transformReceiverTypeRef(this, data)
         return property.compose()

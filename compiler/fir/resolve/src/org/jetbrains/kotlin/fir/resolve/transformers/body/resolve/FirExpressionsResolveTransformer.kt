@@ -469,20 +469,6 @@ class FirExpressionsResolveTransformer(transformer: FirBodyResolveTransformer) :
         return transformedGetClassCall.compose()
     }
 
-    override fun transformWrappedDelegateExpression(
-        wrappedDelegateExpression: FirWrappedDelegateExpression,
-        data: ResolutionMode,
-    ): CompositeTransformResult<FirStatement> {
-        transformExpression(wrappedDelegateExpression, data)
-        with(wrappedDelegateExpression) {
-            val delegateProviderTypeRef = delegateProvider.typeRef
-            val useDelegateProvider = delegateProviderTypeRef is FirResolvedTypeRef &&
-                    delegateProviderTypeRef !is FirErrorTypeRef &&
-                    delegateProviderTypeRef.type !is ConeKotlinErrorType
-            return if (useDelegateProvider) delegateProvider.compose() else expression.compose()
-        }
-    }
-
     override fun <T> transformConstExpression(
         constExpression: FirConstExpression<T>,
         data: ResolutionMode,
