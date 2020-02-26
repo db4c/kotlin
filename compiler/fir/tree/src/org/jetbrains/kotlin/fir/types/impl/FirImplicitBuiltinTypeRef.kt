@@ -63,6 +63,8 @@ class FirImplicitBooleanTypeRef(
     source: FirSourceElement?
 ) : FirImplicitBuiltinTypeRef(source, StandardClassIds.Boolean)
 
+val IMPLICIT_BOOLEAN = FirImplicitBooleanTypeRef(null)
+
 class FirImplicitNothingTypeRef(
     source: FirSourceElement?
 ) : FirImplicitBuiltinTypeRef(source, StandardClassIds.Nothing)
