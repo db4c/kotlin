@@ -65,6 +65,7 @@ import org.jetbrains.kotlin.fir.types.FirTypeProjectionWithVariance
 import org.jetbrains.kotlin.fir.expressions.FirCall
 import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
 import org.jetbrains.kotlin.fir.expressions.FirOperatorCall
+import org.jetbrains.kotlin.fir.expressions.FirComparisonOperator
 import org.jetbrains.kotlin.fir.expressions.FirTypeOperatorCall
 import org.jetbrains.kotlin.fir.expressions.FirWhenExpression
 import org.jetbrains.kotlin.fir.expressions.FirWhenBranch
@@ -363,6 +364,10 @@ abstract class FirTransformer<in D> : FirVisitor<CompositeTransformResult<FirEle
 
     open fun transformOperatorCall(operatorCall: FirOperatorCall, data: D): CompositeTransformResult<FirStatement> {
         return transformElement(operatorCall, data)
+    }
+
+    open fun transformComparisonOperator(comparisonOperator: FirComparisonOperator, data: D): CompositeTransformResult<FirStatement> {
+        return transformElement(comparisonOperator, data)
     }
 
     open fun transformTypeOperatorCall(typeOperatorCall: FirTypeOperatorCall, data: D): CompositeTransformResult<FirStatement> {
@@ -815,6 +820,10 @@ abstract class FirTransformer<in D> : FirVisitor<CompositeTransformResult<FirEle
 
     final override fun visitOperatorCall(operatorCall: FirOperatorCall, data: D): CompositeTransformResult<FirStatement> {
         return transformOperatorCall(operatorCall, data)
+    }
+
+    final override fun visitComparisonOperator(comparisonOperator: FirComparisonOperator, data: D): CompositeTransformResult<FirStatement> {
+        return transformComparisonOperator(comparisonOperator, data)
     }
 
     final override fun visitTypeOperatorCall(typeOperatorCall: FirTypeOperatorCall, data: D): CompositeTransformResult<FirStatement> {
