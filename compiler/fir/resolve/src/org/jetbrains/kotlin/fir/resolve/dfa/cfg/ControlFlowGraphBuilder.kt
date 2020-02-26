@@ -256,6 +256,10 @@ class ControlFlowGraphBuilder {
         return createOperatorCallNode(operatorCall).also { addNewSimpleNode(it) }
     }
 
+    fun exitComparisonOperator(comparisonOperator: FirComparisonOperator): ComparisonOperatorNode {
+        return ComparisonOperatorNode(graph, comparisonOperator, levelCounter, createId()).also { addNewSimpleNode(it) }
+    }
+
     // ----------------------------------- Jump -----------------------------------
 
     fun exitJump(jump: FirJump<*>): JumpNode {
