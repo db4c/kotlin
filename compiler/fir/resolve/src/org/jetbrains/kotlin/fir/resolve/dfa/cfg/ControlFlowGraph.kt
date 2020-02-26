@@ -180,6 +180,7 @@ class BinaryOrExitNode(owner: ControlFlowGraph, override val fir: FirBinaryLogic
 
 class TypeOperatorCallNode(owner: ControlFlowGraph, override val fir: FirTypeOperatorCall, level: Int, id: Int) : CFGNode<FirTypeOperatorCall>(owner, level, id)
 class OperatorCallNode(owner: ControlFlowGraph, override val fir: FirOperatorCall, level: Int, id: Int) : AbstractBinaryExitNode<FirOperatorCall>(owner, level, id)
+class ComparisonOperatorNode(owner: ControlFlowGraph, override val fir: FirComparisonOperator, level: Int, id: Int) : CFGNode<FirComparisonOperator>(owner, level, id)
 
 // ----------------------------------- Jump -----------------------------------
 

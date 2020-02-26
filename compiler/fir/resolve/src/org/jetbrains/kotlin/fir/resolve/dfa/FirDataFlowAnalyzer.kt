@@ -233,6 +233,10 @@ abstract class FirDataFlowAnalyzer<FLOW : Flow>(
         node.flow = flow
     }
 
+    fun exitComparisonOperatorCall(comparisonOperator: FirComparisonOperator) {
+        graphBuilder.exitComparisonOperator(comparisonOperator).mergeIncomingFlow()
+    }
+
     fun exitOperatorCall(operatorCall: FirOperatorCall) {
         val node = graphBuilder.exitOperatorCall(operatorCall).mergeIncomingFlow()
         when (val operation = operatorCall.operation) {

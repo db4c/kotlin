@@ -106,6 +106,13 @@ open class FirBodyResolveTransformer(
         return expressionsTransformer.transformThisReceiverExpression(thisReceiverExpression, data)
     }
 
+    override fun transformComparisonOperator(
+        comparisonOperator: FirComparisonOperator,
+        data: ResolutionMode
+    ): CompositeTransformResult<FirStatement> {
+        return expressionsTransformer.transformComparisonOperator(comparisonOperator, data)
+    }
+
     override fun transformOperatorCall(operatorCall: FirOperatorCall, data: ResolutionMode): CompositeTransformResult<FirStatement> {
         return expressionsTransformer.transformOperatorCall(operatorCall, data)
     }

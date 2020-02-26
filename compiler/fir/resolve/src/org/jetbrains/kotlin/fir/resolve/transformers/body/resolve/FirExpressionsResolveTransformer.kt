@@ -208,6 +208,15 @@ class FirExpressionsResolveTransformer(transformer: FirBodyResolveTransformer) :
         return transformQualifiedAccessExpression(thisReceiverExpression, data)
     }
 
+    override fun transformComparisonOperator(
+        comparisonOperator: FirComparisonOperator,
+        data: ResolutionMode
+    ): CompositeTransformResult<FirStatement> {
+        return (comparisonOperator.transformChildren(transformer, ResolutionMode.ContextIndependent) as FirComparisonOperator).also {
+            it.resultType = comparisonOperator.typeRef.resolvedTypeFromPrototype(builtinTypes.booleanType.type)
+        }.transformSingle(integerLiteralTypeApproximator, null).also(dataFlowAnalyzer::exitComparisonOperatorCall).compose()
+    }
+
     override fun transformOperatorCall(operatorCall: FirOperatorCall, data: ResolutionMode): CompositeTransformResult<FirStatement> {
         if (operatorCall.operation in FirOperation.BOOLEANS) {
             // TODO: add approximation of integer literals
